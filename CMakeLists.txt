@@ -334,14 +334,6 @@ IF(${pybind11_VERSION} VERSION_LESS ${PYBIND11_MIN_VERSION})
     message(FATAL_ERROR "pybind11 version ${pybind11_VERSION} < ${PYBIND11_MIN_VERSION}")
 ENDIF()
 
-execute_process(
-    COMMAND "${PYTHON_EXECUTABLE}" -c
-    "try:\n import numpy\n import os\n inc_path = numpy.get_include()\n if os.path.exists(os.path.join(inc_path, 'numpy', 'arrayobject.h')):\n  print(inc_path, end='')\nexcept:\n pass"
-    OUTPUT_VARIABLE PYTHON_NUMPY_INCLUDE_DIR)
-# format path in CMake-style for consistency with other path variables
-# (a consistent style helps conda builds by using the same path separators)
-file(TO_CMAKE_PATH "${PYTHON_NUMPY_INCLUDE_DIR}" PYTHON_NUMPY_INCLUDE_DIR)
-
 include(GrComponent)
 GR_REGISTER_COMPONENT("python-support" ENABLE_PYTHON
     PYTHONLIBS_FOUND
@@ -461,6 +453,7 @@ add_subdirectory(gr-dtv)
 add_subdirectory(gr-audio)
 add_subdirectory(gr-channels)
 add_subdirectory(gr-pdu)
+add_subdirectory(gr-iio)
 add_subdirectory(gr-qtgui)
 add_subdirectory(gr-trellis)
 add_subdirectory(gr-uhd)
@@ -470,6 +463,7 @@ add_subdirectory(gr-vocoder)
 add_subdirectory(gr-wavelet)
 add_subdirectory(gr-zeromq)
 add_subdirectory(gr-network)
+add_subdirectory(gr-soapy)
 
 # Defining GR_CTRLPORT for gnuradio/config.h
 if(ENABLE_GR_CTRLPORT)
@@ -478,9 +472,9 @@ if(ENABLE_GR_CTRLPORT)
   if(CTRLPORT_BACKENDS GREATER 0)
     SET(GR_RPCSERVER_ENABLED True)
 
-    if(THRIFT_FOUND)
+    if(ENABLE_CTRLPORT_THRIFT)
       SET(GR_RPCSERVER_THRIFT True)
-    endif(THRIFT_FOUND)
+    endif(ENABLE_CTRLPORT_THRIFT)
   endif(CTRLPORT_BACKENDS GREATER 0)
 endif(ENABLE_GR_CTRLPORT)
 

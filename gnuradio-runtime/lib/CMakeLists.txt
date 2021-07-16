@@ -12,9 +12,6 @@ gr_check_hdr_n_def(sys/resource.h HAVE_SYS_RESOURCE_H)
 # Look for libunwind
 ########################################################################
 find_package(libunwind)
-if(libunwind_FOUND)
-    add_definitions(-DHAVE_LIBUNWIND)
-endif(libunwind_FOUND)
 
 ########################################################################
 # Handle the generated constants
@@ -131,7 +128,6 @@ target_link_libraries(gnuradio-runtime PUBLIC
   Boost::thread
   Log4Cpp::log4cpp
   MPLib::mplib
-  ${libunwind_LIBRARIES}
   # INTERFACE/PRIVATE split so users of the library can choose how to link to Python
   # (importantly, extension modules can avoid linking against Python and resolve
   #  their own Python symbols at runtime through the Python interpreter's linking)
@@ -139,6 +135,8 @@ target_link_libraries(gnuradio-runtime PUBLIC
     Python::Module
   PRIVATE
     Python::Python
+    libunwind::libunwind
+    pybind11::pybind11
   )
 
 # Address linker issues with std::filesystem on Centos 8 and Debian
@@ -146,8 +144,6 @@ target_link_libraries(gnuradio-runtime PUBLIC $<$<AND:$<CXX_COMPILER_ID:GNU>,$<V
 
 target_include_directories(gnuradio-runtime
   PUBLIC
-    ${PYTHON_NUMPY_INCLUDE_DIR}
-    ${pybind11_INCLUDE_DIR}
     $<INSTALL_INTERFACE:include>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/../include>
@@ -176,18 +172,11 @@ target_sources(gnuradio-runtime PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/controlport/rpcserver_selector.cc
 )
 
-OPTION(ENABLE_CTRLPORT_THRIFT "Enable ControlPort Thrift support" ON)
-
 if(ENABLE_CTRLPORT_THRIFT)
-# Look if Thrift is installed and use it as a ControlPort backend.
-FIND_PACKAGE(THRIFT ${GR_THRIFT_MIN_VERSION})
-
-if(THRIFT_FOUND)
-list(APPEND EXTRA_DEPS "THRIFT")
 MATH(EXPR CTRLPORT_BACKENDS "${CTRLPORT_BACKENDS} + 1")
 
 # Indicate thrift as an installed backend in the cmake summary.
-message(STATUS "Found and enabling Thrift backend to ControlPort")
+message(STATUS "Enabling Thrift backend to ControlPort")
 GR_APPEND_SUBCOMPONENT("thrift")
 
 # Run Thrift To compile C++ and Python files
@@ -215,7 +204,7 @@ target_sources(gnuradio-runtime PRIVATE
   # add files built by compiling gnuradio.thrift
   ${gnuradio_thrift_generated_sources}
   )
-target_link_libraries(gnuradio-runtime PUBLIC
+target_link_libraries(gnuradio-runtime PRIVATE
   Thrift::thrift
   )
 
@@ -228,7 +217,6 @@ install(
   DESTINATION ${GR_PKG_DOC_DIR}/config
 )
 
-endif(THRIFT_FOUND)
 endif(ENABLE_CTRLPORT_THRIFT)
 
 # Save the number of backends for testing against later
@@ -321,13 +309,7 @@ if(TRY_SHM_VMCIRCBUF)
     target_compile_definitions(gnuradio-runtime PRIVATE -DTRY_SHM_VMCIRCBUF )
 endif(TRY_SHM_VMCIRCBUF)
 
-set(EXTRA_DEPS "")
-if(ENABLE_CTRLPORT_THRIFT)
-  if(THRIFT_FOUND)
-    list(APPEND EXTRA_DEPS THRIFT)
-  endif()
-endif()
-gr_library_foo(gnuradio-runtime ${EXTRA_DEPS})
+gr_library_foo(gnuradio-runtime)
 
 
 ########################################################################

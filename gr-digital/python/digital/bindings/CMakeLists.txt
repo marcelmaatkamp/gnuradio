@@ -28,11 +28,12 @@ list(APPEND digital_python_files
     correlate_access_code_tag_ff_python.cc
     costas_loop_cc_python.cc
     cpmmod_bc_python.cc
-    crc32_python.cc
+    crc16_async_bb_python.cc
     crc32_async_bb_python.cc
     crc32_bb_python.cc
     decision_feedback_equalizer_python.cc
     descrambler_bb_python.cc
+    diff_coding_type_python.cc
     diff_decoder_bb_python.cc
     diff_encoder_bb_python.cc
     diff_phasor_cc_python.cc

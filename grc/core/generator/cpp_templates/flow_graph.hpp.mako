@@ -28,10 +28,10 @@ ${inc}
 #include <QWidget>
 #include <QGridLayout>
 #include <QSettings>
+#include <QApplication>
 % endif
 
 % if parameters:
-#include <iostream>
 #include <boost/program_options.hpp>
 % endif
 

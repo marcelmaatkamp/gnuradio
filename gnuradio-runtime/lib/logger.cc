@@ -19,8 +19,19 @@
 #endif
 
 #include <gnuradio/logger.h>
+
 #include <gnuradio/prefs.h>
+
+#include <log4cpp/FileAppender.hh>
+#include <log4cpp/OstreamAppender.hh>
+#include <log4cpp/PatternLayout.hh>
+#include <log4cpp/PropertyConfigurator.hh>
+#include <log4cpp/RollingFileAppender.hh>
+#include <boost/thread.hpp>
+
 #include <algorithm>
+#include <filesystem>
+#include <iostream>
 #include <memory>
 #include <stdexcept>
 
@@ -140,6 +151,31 @@ logger_ptr logger_get_logger(std::string name)
         logger->setPriority(log4cpp::Priority::NOTSET);
         return logger;
     }
+}
+
+logger_ptr logger_get_configured_logger(const std::string& name)
+{
+    if (log4cpp::Category::exists(name))
+        return &log4cpp::Category::getInstance(name);
+
+    prefs* p = prefs::singleton();
+    std::string config_file = p->get_string("LOG", "log_config", "");
+    std::string log_level = p->get_string("LOG", "log_level", "off");
+    std::string log_file = p->get_string("LOG", "log_file", "");
+
+    GR_LOG_GETLOGGER(LOG, "gr_log." + name);
+    GR_LOG_SET_LEVEL(LOG, log_level);
+
+    if (!log_file.empty()) {
+        if (log_file == "stdout") {
+            GR_LOG_SET_CONSOLE_APPENDER(LOG, "stdout", "gr::log :%p: %c{1} - %m%n");
+        } else if (log_file == "stderr") {
+            GR_LOG_SET_CONSOLE_APPENDER(LOG, "stderr", "gr::log :%p: %c{1} - %m%n");
+        } else {
+            GR_LOG_SET_FILE_APPENDER(LOG, log_file, true, "%r :%p: %c{1} - %m%n");
+        }
+    }
+    return LOG;
 }
 
 bool logger_load_config(const std::string& config_filename)

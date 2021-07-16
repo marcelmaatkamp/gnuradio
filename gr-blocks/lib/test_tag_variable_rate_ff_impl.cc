@@ -16,10 +16,6 @@
 #include <gnuradio/io_signature.h>
 #include <gnuradio/xoroshiro128p.h>
 #include <cstdint>
-#include <cstring>
-#include <iomanip>
-#include <iostream>
-#include <stdexcept>
 
 using namespace pmt;
 

@@ -15,7 +15,7 @@ import sys
 import glob
 import logging
 
-from ..tools import remove_pattern_from_file, CMakeFileEditor, CPPFileEditor
+from ..tools import remove_pattern_from_file, CMakeFileEditor, CPPFileEditor, get_block_names
 from .base import ModTool, ModToolException
 
 logger = logging.getLogger(__name__)
@@ -88,11 +88,6 @@ class ModToolRemove(ModTool):
             ed.remove_double_newlines()
 
         # Go, go, go!
-        if not self.skip_subdirs['lib']:
-            self._run_subdir('lib', ('*.cc', '*.h'), ('add_library', 'list'),
-                             cmakeedit_func=_remove_cc_test_case)
-        if not self.skip_subdirs['include']:
-            incl_files_deleted = self._run_subdir(self.info['includedir'], ('*.h',), ('install',))
         if not self.skip_subdirs['python']:
             py_files_deleted = self._run_subdir('python', ('*.py',), ('GR_PYTHON_INSTALL',),
                                                 cmakeedit_func=_remove_py_test_case)
@@ -105,13 +100,28 @@ class ModToolRemove(ModTool):
             pbdoc_files_deleted = self._run_subdir('python/bindings/docstrings', ('*.h',), ('',))
 
             # Update python_bindings.cc
-            ed = CPPFileEditor(self._file['ccpybind'])
-            ed.remove_value('// BINDING_FUNCTION_PROTOTYPES(', '// ) END BINDING_FUNCTION_PROTOTYPES', 
-                'void bind_' + self.info['blockname'] + '(py::module& m);')
-            ed.remove_value('// BINDING_FUNCTION_CALLS(', '// ) END BINDING_FUNCTION_CALLS', 
-                'bind_' + self.info['blockname'] + '(m);')
-            ed.write()
+            blocknames_to_delete = []
+            if self.info['blockname']:
+                # A complete block name was given
+                blocknames_to_delete.append(self.info['blockname'])
+            elif self.info['pattern']:
+                # A regex resembling one or several blocks were given
+                blocknames_to_delete = get_block_names(self.info['pattern'], self.info['modname']) 
+            else:
+                raise ModToolException("No block name or regex was specified!")
+            for blockname in blocknames_to_delete:
+                ed = CPPFileEditor(self._file['ccpybind'])
+                ed.remove_value('// BINDING_FUNCTION_PROTOTYPES(', '// ) END BINDING_FUNCTION_PROTOTYPES', 
+                    'void bind_' + blockname + '(py::module& m);')
+                ed.remove_value('// BINDING_FUNCTION_CALLS(', '// ) END BINDING_FUNCTION_CALLS', 
+                    'bind_' + blockname + '(m);')
+                ed.write()
 
+        if not self.skip_subdirs['lib']:
+            self._run_subdir('lib', ('*.cc', '*.h'), ('add_library', 'list'),
+                             cmakeedit_func=_remove_cc_test_case)
+        if not self.skip_subdirs['include']:
+            incl_files_deleted = self._run_subdir(self.info['includedir'], ('*.h',), ('install',))
         if not self.skip_subdirs['grc']:
             self._run_subdir('grc', ('*.yml',), ('install',))
 
@@ -131,9 +141,29 @@ class ModToolRemove(ModTool):
             files = files + sorted(glob.glob(f"{path}/{g}"))
         files_filt = []
         logger.info(f"Searching for matching files in {path}/:")
-        for f in files:
-            if re.search(self.info['pattern'], os.path.basename(f)) is not None:
-                files_filt.append(f)
+        if self.info['blockname']:
+            # Ensure the blockname given is not confused with similarly named blocks
+            blockname_pattern = ''
+            if path == 'python':
+                blockname_pattern = f"^(qa_)?{self.info['blockname']}.py$"
+            elif path == 'python/bindings':
+                blockname_pattern = f"^{self.info['blockname']}_python.cc$"
+            elif path == 'python/bindings/docstrings':
+                blockname_pattern = f"^{self.info['blockname']}_pydoc_template.h$"
+            elif path == 'lib':
+                blockname_pattern = f"^{self.info['blockname']}_impl(\\.h|\\.cc)$"
+            elif path == self.info['includedir']:
+                blockname_pattern = f"^{self.info['blockname']}.h$"
+            elif path == 'grc':
+                blockname_pattern = f"^{self.info['modname']}_{self.info['blockname']}.block.yml$"
+            for f in files:
+                if re.search(blockname_pattern, os.path.basename(f)) is not None:
+                    files_filt.append(f)
+        elif self.info['pattern']:
+            # A regex resembling one or several blocks were given as stdin
+            for f in files:
+                if re.search(self.info['pattern'], os.path.basename(f)) is not None:
+                    files_filt.append(f)
         if len(files_filt) == 0:
             logger.info("None found.")
             return []
